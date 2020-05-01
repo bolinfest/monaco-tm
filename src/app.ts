@@ -166,6 +166,7 @@ function defineTheme(name: string): void {
     inherit: true,
     rules: [
       {token: 'constant.numeric', foreground: 'B5CEA8'},
+      {token: 'constant.other', foreground: 'D4D4D4'},
       {token: 'keyword.operator.comparison', foreground: 'D4D4D4'},
       {token: 'entity.name.function', foreground: 'DCDCAA'},
       {token: 'entity.name.tag', foreground: '569CD6'},

@@ -15,13 +15,50 @@ import nullthrows from 'nullthrows';
 import {createGrammarStore} from './index';
 import {INITIAL} from 'vscode-textmate';
 
-async function main() {
+// From monaco-editor-textmate README.
+import {Registry} from 'monaco-textmate';
+import {wireTmGrammars} from 'monaco-editor-textmate';
+import {loadWASM} from 'onigasm';
+
+type GrammarConfiguration = {language: string; scopeName: string; url: string};
+
+const useEncodedTokens = false;
+main(useEncodedTokens, 'hack');
+
+const testOptions = {
+  hack: `<?hh // strict
+
+class Example {
+}
+`,
+  html: `<!DOCTYPE HTML>
+<html>
+<head>
+</head>
+<body>
+</body>
+</html>
+`,
+  javascript: `
+const React = require('react');
+
+function create() {
+  return (
+    <div>
+      hello world
+    </div>
+  );
+}
+`,
+};
+
+async function main(useEncodedTokens: boolean, testLanguage: keyof typeof testOptions) {
   // Note that Hack lists text.html.basic as an embedded grammar, so we must
   // provide that grammar (and all of its transitive deps) as well.
   //
   // This sort of looks like:
   // https://github.com/microsoft/vscode-textmate/blob/0730e8ef740d87401764d76e9193f74c6f458b37/test-cases/themes/grammars.json
-  const grammarConfigurations = [
+  const grammarConfigurations: GrammarConfiguration[] = [
     {language: 'css', scopeName: 'source.css', url: '/grammars/css.plist'},
     {language: 'hack', scopeName: 'source.hack', url: '/grammars/hack.json'},
     {language: 'html', scopeName: 'text.html.basic', url: '/grammars/html.json'},
@@ -39,67 +76,24 @@ async function main() {
     });
   }
 
-  const scopeNameToTextMateGrammarURL: Map<string, string> = new Map(
-    grammarConfigurations.map(({scopeName, url}) => [scopeName, url]),
-  );
-  const grammarStore = await createGrammarStore(scopeNameToTextMateGrammarURL);
-
-  for (const {language, scopeName} of grammarConfigurations) {
-    // const tokensProvider = await grammarStore.createTokensProvider(scopeName);
-    const tokensProvider = await grammarStore.createEncodedTokensProvider(scopeName);
-    monaco.languages.setTokensProvider(language, tokensProvider);
+  if (useEncodedTokens) {
+    await tryEncodedTokensProvider(grammarConfigurations);
+  } else {
+    await tryMonacoEditorTextMate(grammarConfigurations);
   }
 
-  const options = [
-    {
-      language: 'hack',
-      value: `<?hh // strict
-
-class Example {
-}
-`,
-    },
-    {
-      language: 'html',
-      value: `<!DOCTYPE HTML>
-<html>
-<head>
-</head>
-<body>
-</body>
-</html>
-`,
-    },
-    {
-      language: 'javascript',
-      value: `
-const React = require('react');
-
-function create() {
-  return (
-    <div>
-      hello world
-    </div>
-  );
-}
-`,
-    },
-  ];
-  const {language, value} = options[0];
+  const value = testOptions[testLanguage];
 
   const theme = 'hackTheme';
   defineTheme(theme);
   monaco.editor.create(nullthrows(document.getElementById('container')), {
     value,
-    language,
-    // theme,
+    language: testLanguage,
+    theme,
     minimap: {
       enabled: false,
     },
   });
-
-  // Although the web demo doesn't work, this seems to have sensible output.
-  await tryCodeOnVSCodeTextMateReadme(grammarStore);
 }
 
 async function tryCodeOnVSCodeTextMateReadme(grammarStore: GrammarStore) {
@@ -126,7 +120,21 @@ class Example {
   }
 }
 
-main();
+async function tryEncodedTokensProvider(grammarConfigurations: GrammarConfiguration[]) {
+  const scopeNameToTextMateGrammarURL: Map<string, string> = new Map(
+    grammarConfigurations.map(({scopeName, url}) => [scopeName, url]),
+  );
+  const grammarStore = await createGrammarStore(scopeNameToTextMateGrammarURL);
+
+  for (const {language, scopeName} of grammarConfigurations) {
+    // const tokensProvider = await grammarStore.createTokensProvider(scopeName);
+    const tokensProvider = await grammarStore.createEncodedTokensProvider(scopeName);
+    monaco.languages.setTokensProvider(language, tokensProvider);
+  }
+
+  // Although the web demo doesn't work, this seems to have sensible output.
+  await tryCodeOnVSCodeTextMateReadme(grammarStore);
+}
 
 function defineTheme(name: string): void {
   // This code is ported from this playground:
@@ -143,4 +151,31 @@ function defineTheme(name: string): void {
       {token: 'keyword.operator.comparison.php', foreground: 'ff0000'},
     ],
   });
+}
+
+// Adapted from the README for monaco-editor-textmate.
+async function tryMonacoEditorTextMate(grammarConfigurations: GrammarConfiguration[]) {
+  await loadWASM('/node_modules/onigasm/lib/onigasm.wasm');
+
+  const registry = new Registry({
+    getGrammarDefinition: async (scopeName) => {
+      const config = grammarConfigurations.find((config) => config.scopeName === scopeName);
+      if (config == null) {
+        throw Error(`no URL for ${scopeName}`);
+      }
+
+      const {url} = config;
+      const format = url.endsWith('.json') ? 'json' : 'plist';
+      return {
+        format,
+        content: await (await fetch(url)).text(),
+      };
+    },
+  });
+
+  const grammars = new Map(
+    grammarConfigurations.map(({language, scopeName}) => [language, scopeName]),
+  );
+
+  await wireTmGrammars(monaco, registry, grammars);
 }

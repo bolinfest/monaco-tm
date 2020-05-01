@@ -11,7 +11,6 @@ import type {SupportedLanguage} from './examples';
 //
 // because we are shipping only a subset of the languages.
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import nullthrows from 'nullthrows';
 import {createGrammarStore} from './index';
 import {getSampleCodeForLanguage} from './examples';
 
@@ -46,7 +45,13 @@ async function main(language: SupportedLanguage) {
   await registerEncodedTokensProviders(grammarConfigurations);
 
   const value = getSampleCodeForLanguage(language);
-  monaco.editor.create(nullthrows(document.getElementById('container')), {
+  const id = 'container';
+  const element = document.getElementById(id);
+  if (element == null) {
+    throw Error(`could not find element #${id}`);
+  }
+
+  monaco.editor.create(element, {
     value,
     language,
     theme: 'vs', // 'vs' or 'vs-dark' should both work here

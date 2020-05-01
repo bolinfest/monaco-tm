@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "monaco-editor": "0.20.0",
-    "nullthrows": "1.1.1",
     "vscode-oniguruma": "1.3.0",
     "vscode-textmate": "5.1.1"
   },

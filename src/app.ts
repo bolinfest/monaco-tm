@@ -1,71 +1,50 @@
 import type {GrammarStore} from './index';
 
-import * as monaco from 'monaco-editor';
+// Recall we are using MonacoWebpackPlugin. According to the
+// monaco-editor-webpack-plugin docs, we must use:
+//
+// import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+//
+// instead of
+//
+// import * as monaco from 'monaco-editor';
+//
+// because we are shipping only a subset of the languages.
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import nullthrows from 'nullthrows';
 import {createGrammarStore} from './index';
 import {INITIAL} from 'vscode-textmate';
 
-declare global {
-  interface Window {
-    MonacoEnvironment: {
-      getWorkerUrl(moduleId: string, label: string): string;
-    } | null;
-  }
-}
-
 async function main() {
-  window['MonacoEnvironment'] = {
-    getWorkerUrl(_moduleId: string, label: string) {
-      if (label === 'json') {
-        return './json.worker.bundle.js';
-      }
-      if (label === 'css') {
-        return './css.worker.bundle.js';
-      }
-      if (label === 'html') {
-        return './html.worker.bundle.js';
-      }
-      if (label === 'typescript' || label === 'javascript') {
-        return './ts.worker.bundle.js';
-      }
-      return './editor.worker.bundle.js';
-    },
-  };
-
-  // We have to specify a LanguageConfiguration for Hack before we can register
-  // a tokens provider for it.
-  const hackLanguageIdForMonaco = 'hack';
-  monaco.languages.register({
-    id: hackLanguageIdForMonaco,
-    extensions: ['.php'],
-  });
-
-  // Apparently we have to tell Monaco about Smarty, as well.
-  const smartyLanguageIdForMonaco = 'smarty';
-  monaco.languages.register({
-    id: smartyLanguageIdForMonaco,
-    extensions: ['.tpl'],
-  });
-
   // Note that Hack lists text.html.basic as an embedded grammar, so we must
   // provide that grammar (and all of its transitive deps) as well.
   //
-  // [language, scopeName, textMateGrammarURL]
-  const grammars = [
-    ['css', 'source.css', '/grammars/css.plist'],
-    [hackLanguageIdForMonaco, 'source.hack', '/grammars/hack.json'],
-    ['html', 'text.html.basic', '/grammars/html.json'],
-    ['javascript', 'source.js', '/grammars/JavaScript.tmLanguage.json'],
-    ['python', 'source.python', '/grammars/MagicPython.tmLanguage.json'],
-    [smartyLanguageIdForMonaco, 'source.smarty', '/grammars/smarty.tmLanguage.json'],
-    ['sql', 'source.sql', '/grammars/SQL.plist'],
+  // This sort of looks like:
+  // https://github.com/microsoft/vscode-textmate/blob/0730e8ef740d87401764d76e9193f74c6f458b37/test-cases/themes/grammars.json
+  const grammarConfigurations = [
+    {language: 'css', scopeName: 'source.css', url: '/grammars/css.plist'},
+    {language: 'hack', scopeName: 'source.hack', url: '/grammars/hack.json'},
+    {language: 'html', scopeName: 'text.html.basic', url: '/grammars/html.json'},
+    {language: 'javascript', scopeName: 'source.js', url: '/grammars/JavaScript.tmLanguage.json'},
+    {language: 'python', scopeName: 'source.python', url: '/grammars/MagicPython.tmLanguage.json'},
+    {language: 'smarty', scopeName: 'source.smarty', url: '/grammars/smarty.tmLanguage.json'},
+    {language: 'sql', scopeName: 'source.sql', url: '/grammars/SQL.plist'},
   ];
+
+  // We have to register all of the languages with Monaco before we can configure them.
+  for (const {language} of grammarConfigurations) {
+    monaco.languages.register({
+      id: language,
+      extensions: [],
+    });
+  }
+
   const scopeNameToTextMateGrammarURL: Map<string, string> = new Map(
-    grammars.map(([, scopeName, textMateGrammarURL]) => [scopeName, textMateGrammarURL]),
+    grammarConfigurations.map(({scopeName, url}) => [scopeName, url]),
   );
   const grammarStore = await createGrammarStore(scopeNameToTextMateGrammarURL);
 
-  for (const [language, scopeName] of grammars) {
+  for (const {language, scopeName} of grammarConfigurations) {
     // const tokensProvider = await grammarStore.createTokensProvider(scopeName);
     const tokensProvider = await grammarStore.createEncodedTokensProvider(scopeName);
     monaco.languages.setTokensProvider(language, tokensProvider);

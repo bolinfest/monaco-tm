@@ -38,6 +38,8 @@ export class GrammarStore {
     };
   }
 
+  // https://github.com/NeekSandhu/monaco-editor-textmate/issues/11#issuecomment-561984387
+  // provides some insight as to why this isn't working.
   async createEncodedTokensProvider(
     scopeName: string,
   ): Promise<monaco.languages.EncodedTokensProvider> {

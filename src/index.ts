@@ -79,7 +79,7 @@ async function createRegistry(
         // file extension or else parseRawGrammar() will assume it is a PLIST
         // grammar.
         const match = url.match(/\/([^\/]+\.json)$/);
-        const filePath = match && match != null ? match[1] : undefined;
+        const filePath = match != null ? match[1] : undefined;
         return parseRawGrammar(content, filePath);
       }
 

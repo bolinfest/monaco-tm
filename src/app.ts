@@ -51,7 +51,7 @@ abstract final class ClassDefWithLotsOfKeywords {
 </body>
 </html>
 `,
-  javascript: `
+  javascript: `\
 const React = require('react');
 
 function create() {
@@ -61,6 +61,14 @@ function create() {
     </div>
   );
 }
+`,
+  python: `\
+import foo
+
+async def bar(): string:
+  f = await foo()
+  f_string = f"Hooray {f}! format strings are not supported in current Monarch grammar"
+  return foo_string
 `,
 };
 

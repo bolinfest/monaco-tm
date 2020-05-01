@@ -5,7 +5,7 @@ import {createOnigScanner, createOnigString, loadWASM} from 'vscode-oniguruma';
 import {INITIAL, Registry, parseRawGrammar} from 'vscode-textmate';
 type IState = monaco.languages.IState;
 
-import DEFAULT_THEME from './dark_vs';
+import DARK_VISUAL_STUDIO from './dark_vs';
 
 export async function createGrammarStore(
   scopeNameToTextMateGrammarURL: Map<string, string>,
@@ -14,7 +14,7 @@ export async function createGrammarStore(
   return new GrammarStore(registry);
 }
 
-export class GrammarStore {
+class GrammarStore {
   private scopeNameToGrammar: Map<string, Promise<IGrammar | null>> = new Map();
 
   constructor(private registry: Registry) {}
@@ -56,14 +56,9 @@ export class GrammarStore {
       },
 
       tokenizeEncoded(line: string, state: IState): monaco.languages.IEncodedLineTokens {
-        // It looks like src/vs/editor/standalone/common/monarch/monarchLexer.ts
-        // does a check to see whether state.embeddedModeData is set, and if so,
-        // performs slightly different logic?
-
         const tokenizeLineResult2 = grammar.tokenizeLine2(line, <StackElement>state);
         const endState = <IState>tokenizeLineResult2.ruleStack;
         const {tokens} = tokenizeLineResult2;
-        // convertToEndOffset(tokens, line.length);
         return {tokens, endState};
       },
     };
@@ -111,7 +106,7 @@ async function createRegistry(
 
       throw Error(`request to ${url} failed: ${response}`);
     },
-    theme: DEFAULT_THEME,
+    theme: DARK_VISUAL_STUDIO,
   });
 }
 
@@ -127,14 +122,4 @@ async function loadVSCodeOnigurumWASM(): Promise<Response | ArrayBuffer> {
   // Otherwise, a TypeError is thrown when using the streaming compiler.
   // We therefore use the non-streaming compiler :(.
   return await response.arrayBuffer();
-}
-
-// Found this function in vscode/src/vs/editor/common/model/textModelTokens.ts.
-function convertToEndOffset(tokens: Uint32Array, lineTextLength: number): void {
-  const tokenCount = tokens.length >>> 1;
-  const lastTokenIndex = tokenCount - 1;
-  for (let tokenIndex = 0; tokenIndex < lastTokenIndex; tokenIndex++) {
-    tokens[tokenIndex << 1] = tokens[(tokenIndex + 1) << 1];
-  }
-  tokens[lastTokenIndex << 1] = lineTextLength;
 }

@@ -1,3 +1,5 @@
+// Taken from
+// https://github.com/microsoft/vscode-textmate/blob/0730e8ef740d87401764d76e9193f74c6f458b37/test-cases/themes/dark_vs.json
 export default {
   name: 'Dark Visual Studio',
   settings: [

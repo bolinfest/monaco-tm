@@ -28,7 +28,19 @@ main(useEncodedTokens, 'hack');
 const testOptions = {
   hack: `<?hh // strict
 
-class Example {
+type SomeShape = shape(
+  'frame_type' => FrameType,
+  ?'commit_id' => ?string,
+);
+
+abstract final class ClassDefWithLotsOfKeywords {
+  const int BIG_NUMBER = 30000000;
+
+  public static async function genRender(): Awaitable<Stuff> {
+    return <xhp:div>
+      hello world
+    </xhp:div>;
+  }
 }
 `,
   html: `<!DOCTYPE HTML>
@@ -142,13 +154,31 @@ function defineTheme(name: string): void {
   // It seems to work there, so we ignore these errors.
   // @ts-ignore
   monaco.editor.defineTheme(name, {
-    base: 'vs', // can also be vs-dark or hc-black
-    inherit: true, // can also be false to completely replace the builtin rules
+    base: 'vs-dark',
+    inherit: true,
     rules: [
-      {token: 'comment', foreground: 'ffa500', fontStyle: 'italic underline'},
-      {token: 'keyword', foreground: '008800', fontStyle: 'bold'},
-      {token: 'entity.name.type.class.php', foreground: '008800', fontStyle: 'bold'},
-      {token: 'keyword.operator.comparison.php', foreground: 'ff0000'},
+      {token: 'constant.numeric', foreground: 'B5CEA8'},
+      {token: 'keyword.operator.comparison', foreground: 'D4D4D4'},
+      {token: 'entity.name.function', foreground: 'DCDCAA'},
+      {token: 'entity.name.tag', foreground: '569CD6'},
+      {token: 'entity.name.type', foreground: '4EC9B0'},
+      {token: 'storage.modifier', foreground: '569CD6'},
+      {token: 'storage.type', foreground: '569CD6'},
+      {token: 'support.class', foreground: '4EC9B0'},
+
+      // Multiple comment defs necessary?
+      {token: 'comment', foreground: '6A9955'},
+      {token: 'punctuation.definition.comment', foreground: '6A9955'},
+
+      // Multiple string defs necessary?
+      {token: 'string', foreground: 'CE9178'},
+      {token: 'string.quoted.single', foreground: 'CE9178'},
+      {token: 'meta.string-contents.quoted.single', foreground: 'CE9178'},
+      {token: 'punctuation.definition.string', foreground: 'CE9178'},
+
+      // Multiple variable defs necessary?
+      {token: 'punctuation.definition.variable', foreground: '9CDCFE'},
+      {token: 'variable', foreground: '9CDCFE'},
     ],
   });
 }

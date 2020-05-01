@@ -1,0 +1,29 @@
+{
+  "arrowParens": "always",
+  "bracketSpacing": false,
+  "jsxBracketSameLine": true,
+  "useTabs": false,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "printWidth": 100,
+  "trailingComma": "all",
+  "overrides": [
+    # This makes it so we can have trailing commas in tsconfig.json files,
+    # though as noted in https://github.com/prettier/prettier/issues/5708,
+    # two things are suboptimal:
+    # - "quoteProps" does not have an "always" option, so "preserve" is the
+    #   best we can do.
+    # - If your string contains an escaped double-quote, Prettier will rewrite
+    #   it as a single-quoted string to avoid the escaping. The recommended
+    #   workaround is to use `\u0022` instead of `\"`.
+    {
+      "files": ["**/tsconfig.json", "**/tsconfig.*.json"],
+      "options": {
+        "parser": "json5",
+        "quoteProps": "preserve",
+        "singleQuote": false,
+        "trailingComma": "all"
+      }
+    }
+  ]
+}

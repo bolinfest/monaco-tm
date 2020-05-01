@@ -22,7 +22,7 @@ import {loadWASM} from 'onigasm';
 
 type GrammarConfiguration = {language: string; scopeName: string; url: string};
 
-const useEncodedTokens = false;
+const useEncodedTokens = true;
 main(useEncodedTokens, 'hack');
 
 const testOptions = {

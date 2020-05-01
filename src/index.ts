@@ -5,6 +5,8 @@ import {createOnigScanner, createOnigString, loadWASM} from 'vscode-oniguruma';
 import {INITIAL, Registry, parseRawGrammar} from 'vscode-textmate';
 type IState = monaco.languages.IState;
 
+import DEFAULT_THEME from './dark_vs';
+
 export async function createGrammarStore(
   scopeNameToTextMateGrammarURL: Map<string, string>,
 ): Promise<GrammarStore> {
@@ -109,6 +111,7 @@ async function createRegistry(
 
       throw Error(`request to ${url} failed: ${response}`);
     },
+    theme: DEFAULT_THEME,
   });
 }
 

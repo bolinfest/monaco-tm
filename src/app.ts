@@ -66,6 +66,7 @@ async function main() {
   const grammarStore = await createGrammarStore(scopeNameToTextMateGrammarURL);
 
   for (const [language, scopeName] of grammars) {
+    // const tokensProvider = await grammarStore.createTokensProvider(scopeName);
     const tokensProvider = await grammarStore.createEncodedTokensProvider(scopeName);
     monaco.languages.setTokensProvider(language, tokensProvider);
   }

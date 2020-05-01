@@ -17,8 +17,25 @@ export class GrammarStore {
 
   constructor(private registry: Registry) {}
 
+  // This does not seem to work. Note VS Code does not appear to be going this route.
   async createTokensProvider(scopeName: string): Promise<monaco.languages.TokensProvider> {
-    throw Error('This does not appear to be supported in VS Code.');
+    const grammar = await this.getGrammar(scopeName);
+    if (grammar == null) {
+      throw Error(`no grammar for ${scopeName}`);
+    }
+
+    return {
+      getInitialState(): IState {
+        return INITIAL;
+      },
+
+      tokenize(line: string, state: IState): monaco.languages.ILineTokens {
+        const lineTokens = grammar.tokenizeLine(line, <StackElement>state);
+        const {tokens, ruleStack} = lineTokens;
+        // @ts-ignore: probably should not be ignoring this
+        return {tokens, endState: ruleStack};
+      },
+    };
   }
 
   async createEncodedTokensProvider(

@@ -10,5 +10,5 @@ https://github.com/microsoft/monaco-editor/issues/1915.
 - `yarn demo`
 - open http://localhost:8084/
 
-This shows off the Hack grammar working by default, as it is a language for
-which a TextMate grammar exists, but no Monarch grammar.
+Currently, only the Python grammar and VS Code Dark+ themes are included in the
+demo.

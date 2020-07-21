@@ -1,4 +1,4 @@
-import type {SupportedLanguage} from './examples';
+import type {LanguageId} from './register';
 
 // Recall we are using MonacoWebpackPlugin. According to the
 // monaco-editor-webpack-plugin docs, we must use:
@@ -11,38 +11,80 @@ import type {SupportedLanguage} from './examples';
 //
 // because we are shipping only a subset of the languages.
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import {createGrammarStore} from './index';
-import {getSampleCodeForLanguage} from './examples';
+import {createOnigScanner, createOnigString, loadWASM} from 'vscode-oniguruma';
+import {SimpleLanguageInfoProvider} from './providers';
+import {registerLanguages} from './register';
+import VsCodeDarkTheme from './vs-dark-plus-theme';
 
-type GrammarConfiguration = {language: string; scopeName: string; url: string};
+main('python');
 
-main('hack');
-
-async function main(language: SupportedLanguage) {
-  // Note that Hack lists text.html.basic as an embedded grammar, so we must
-  // provide that grammar (and all of its transitive deps) as well.
+async function main(language: LanguageId) {
+  // In this demo, the following values are hardcoded to support Python using
+  // the VS Code Dark+ theme. Currently, end users are responsible for
+  // extracting the data from the relevant VS Code extensions themselves to
+  // leverage other TextMate grammars or themes. Scripts may be provided to
+  // facilitate this in the future.
   //
-  // This sort of looks like:
-  // https://github.com/microsoft/vscode-textmate/blob/0730e8ef740d87401764d76e9193f74c6f458b37/test-cases/themes/grammars.json
-  const grammarConfigurations: GrammarConfiguration[] = [
-    {language: 'css', scopeName: 'source.css', url: '/grammars/css.plist'},
-    {language: 'hack', scopeName: 'source.hack', url: '/grammars/hack.json'},
-    {language: 'html', scopeName: 'text.html.basic', url: '/grammars/html.json'},
-    {language: 'javascript', scopeName: 'source.js', url: '/grammars/JavaScript.tmLanguage.json'},
-    {language: 'python', scopeName: 'source.python', url: '/grammars/MagicPython.tmLanguage.json'},
-    {language: 'smarty', scopeName: 'source.smarty', url: '/grammars/smarty.tmLanguage.json'},
-    {language: 'sql', scopeName: 'source.sql', url: '/grammars/SQL.plist'},
+  // Note that adding a new TextMate grammar entails the following:
+  // - adding an entry in the languages array
+  // - adding an entry in the grammars map
+  // - making the TextMate file available in the grammars/ folder
+  // - making the monaco.languages.LanguageConfiguration available in the
+  //   configurations/ folder.
+  //
+  // You likely also want to add an entry in getSampleCodeForLanguage() and
+  // change the call to main() above to pass your LanguageId.
+  const languages: monaco.languages.ILanguageExtensionPoint[] = [
+    {
+      id: 'python',
+      extensions: [
+        '.py',
+        '.rpy',
+        '.pyw',
+        '.cpy',
+        '.gyp',
+        '.gypi',
+        '.pyi',
+        '.ipy',
+        '.bzl',
+        '.cconf',
+        '.cinc',
+        '.mcconf',
+        '.sky',
+        '.td',
+        '.tw',
+      ],
+      aliases: ['Python', 'py'],
+      filenames: ['Snakefile', 'BUILD', 'BUCK', 'TARGETS'],
+      firstLine: '^#!\\s*/?.*\\bpython[0-9.-]*\\b',
+    },
   ];
+  const grammars = {
+    'source.python': {
+      language: 'python',
+      path: 'MagicPython.tmLanguage.json',
+    },
+  };
+  const manifest = {
+    baseResourceURI: '',
+    grammars,
+    configurations: languages.map((language) => language.id),
+    theme: VsCodeDarkTheme,
+  };
 
-  // We have to register all of the languages with Monaco before we can configure them.
-  for (const {language} of grammarConfigurations) {
-    monaco.languages.register({
-      id: language,
-      extensions: [],
-    });
-  }
+  const data: ArrayBuffer | Response = await loadVSCodeOnigurumWASM();
+  loadWASM(data);
+  const oniguruma = Promise.resolve({
+    createOnigScanner,
+    createOnigString,
+  });
 
-  await registerEncodedTokensProviders(grammarConfigurations);
+  const provider = new SimpleLanguageInfoProvider(manifest, oniguruma, monaco);
+  registerLanguages(
+    languages,
+    (language: LanguageId) => provider.fetchLanguageInfo(language),
+    monaco,
+  );
 
   const value = getSampleCodeForLanguage(language);
   const id = 'container';
@@ -54,21 +96,39 @@ async function main(language: SupportedLanguage) {
   monaco.editor.create(element, {
     value,
     language,
-    theme: 'vs', // 'vs' or 'vs-dark' should both work here
+    theme: 'vs-dark',
     minimap: {
       enabled: false,
     },
   });
+  provider.injectCSS();
 }
 
-async function registerEncodedTokensProviders(grammarConfigurations: GrammarConfiguration[]) {
-  const scopeNameToTextMateGrammarURL: Map<string, string> = new Map(
-    grammarConfigurations.map(({scopeName, url}) => [scopeName, url]),
-  );
-  const grammarStore = await createGrammarStore(scopeNameToTextMateGrammarURL);
-
-  for (const {language, scopeName} of grammarConfigurations) {
-    const tokensProvider = await grammarStore.createEncodedTokensProvider(scopeName);
-    monaco.languages.setTokensProvider(language, tokensProvider);
+// Taken from https://github.com/microsoft/vscode/blob/829230a5a83768a3494ebbc61144e7cde9105c73/src/vs/workbench/services/textMate/browser/textMateService.ts#L33-L40
+async function loadVSCodeOnigurumWASM(): Promise<Response | ArrayBuffer> {
+  const response = await fetch('/node_modules/vscode-oniguruma/release/onig.wasm');
+  const contentType = response.headers.get('content-type');
+  if (contentType === 'application/wasm') {
+    return response;
   }
+
+  // Using the response directly only works if the server sets the MIME type 'application/wasm'.
+  // Otherwise, a TypeError is thrown when using the streaming compiler.
+  // We therefore use the non-streaming compiler :(.
+  return await response.arrayBuffer();
+}
+
+function getSampleCodeForLanguage(language: LanguageId): string {
+  if (language === 'python') {
+    return `\
+import foo
+
+async def bar(): string:
+  f = await foo()
+  f_string = f"Hooray {f}! format strings are not supported in current Monarch grammar"
+  return foo_string
+`;
+  }
+
+  throw Error(`unsupported language: ${language}`);
 }

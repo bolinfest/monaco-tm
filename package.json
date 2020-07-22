@@ -2,9 +2,11 @@
   "name": "monaco-tm",
   "version": "0.0.0",
   "description": "demo of wiring up Monaco to TextMate",
+  "main": "./dist/index.js",
   "type": "module",
   "scripts": {
-    "demo": "webpack-dev-server --config webpack.config.cjs --port 8084"
+    "demo": "webpack-dev-server --config webpack.config.cjs --port 8084",
+    "release": "tsc"
   },
   "dependencies": {
     "monaco-editor": "0.20.0",

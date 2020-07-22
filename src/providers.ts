@@ -8,20 +8,33 @@ import {INITIAL, Registry, parseRawGrammar} from 'vscode-textmate';
 import {generateTokensCSSForColorMap} from 'monaco-editor/esm/vs/editor/common/modes/supports/tokenization.js';
 
 /** String identifier for a "scope name" such as 'source.cpp' or 'source.java'. */
-type ScopeName = string;
+export type ScopeName = string;
 
-export type SimpleLanguageInfoProviderManifest = {
-  baseResourceURI: string;
+export type TextMateGrammar = {
+  type: 'json' | 'plist';
+  grammar: string;
+};
+
+export type SimpleLanguageInfoProviderConfig = {
   // Key is a ScopeName.
   grammars: {[scopeName: string]: ScopeNameInfo};
+
+  fetchGrammar: (scopeName: ScopeName) => Promise<TextMateGrammar>;
+
   configurations: LanguageId[];
+
+  fetchConfiguration: (language: LanguageId) => Promise<monaco.languages.LanguageConfiguration>;
+
   // This must be available synchronously to the SimpleLanguageInfoProvider
   // constructor, so the user is responsible for fetching the theme data rather
   // than SimpleLanguageInfoProvider.
   theme: IRawTheme;
+
+  onigLib: Promise<IOnigLib>;
+  monaco: Monaco;
 };
 
-type ScopeNameInfo = {
+export interface ScopeNameInfo {
   /**
    * If set, this is the id of an ILanguageExtensionPoint. This establishes the
    * mapping from a MonacoLanguage to a TextMate grammar.
@@ -34,10 +47,7 @@ type ScopeNameInfo = {
    * fenced code blocks.
    */
   injections?: ScopeName[];
-
-  /** Relative to baseResourceURI: should end in '.plist' or '.json'. */
-  path: string;
-};
+}
 
 /**
  * Basic provider to implement the fetchLanguageInfo() function needed to
@@ -45,17 +55,16 @@ type ScopeNameInfo = {
  * asynchronously based on a simple layout of static resources on the server.
  */
 export class SimpleLanguageInfoProvider {
+  private monaco: Monaco;
   private registry: Registry;
   private tokensProviderCache: TokensProviderCache;
 
-  constructor(
-    private manifest: SimpleLanguageInfoProviderManifest,
-    oniguruma: Promise<IOnigLib>,
-    private monaco: Monaco,
-  ) {
-    const {baseResourceURI, grammars, theme} = manifest;
+  constructor(private config: SimpleLanguageInfoProviderConfig) {
+    const {grammars, fetchGrammar, theme, onigLib, monaco} = config;
+    this.monaco = monaco;
+
     this.registry = new Registry({
-      onigLib: oniguruma,
+      onigLib,
 
       async loadGrammar(scopeName: ScopeName): Promise<IRawGrammar | null> {
         const scopeNameInfo = grammars[scopeName];
@@ -63,14 +72,11 @@ export class SimpleLanguageInfoProvider {
           return null;
         }
 
-        const {path} = scopeNameInfo;
-        const uri = `${baseResourceURI}/grammars/${path}`;
-        const response = await fetch(uri);
-        const grammar = await response.text();
+        const {type, grammar} = await fetchGrammar(scopeName);
         // If this is a JSON grammar, filePath must be specified with a `.json`
         // file extension or else parseRawGrammar() will assume it is a PLIST
         // grammar.
-        return parseRawGrammar(grammar, path);
+        return parseRawGrammar(grammar, `example.${type}`);
       },
 
       /**
@@ -110,18 +116,9 @@ export class SimpleLanguageInfoProvider {
   async fetchLanguageInfo(language: LanguageId): Promise<LanguageInfo> {
     const [tokensProvider, configuration] = await Promise.all([
       this.getTokensProviderForLanguage(language),
-      this.getConfigurationForLanguage(language),
+      this.config.fetchConfiguration(language),
     ]);
     return {tokensProvider, configuration};
-  }
-
-  private async getConfigurationForLanguage(
-    language: LanguageId,
-  ): Promise<monaco.languages.LanguageConfiguration | null> {
-    const uri = `${this.manifest.baseResourceURI}/configurations/${language}.json`;
-    const response = await fetch(uri);
-    const rawConfiguration = await response.text();
-    return rehydrateRegexps(rawConfiguration);
   }
 
   private getTokensProviderForLanguage(
@@ -139,7 +136,7 @@ export class SimpleLanguageInfoProvider {
   }
 
   private getScopeNameForLanguage(language: string): string | null {
-    for (const [scopeName, grammar] of Object.entries(this.manifest.grammars)) {
+    for (const [scopeName, grammar] of Object.entries(this.config.grammars)) {
       if (grammar.language === language) {
         return scopeName;
       }
@@ -226,69 +223,4 @@ function createStyleElementForColorsCSS(): HTMLStyleElement {
     head?.appendChild(style);
   }
   return style;
-}
-
-/**
- * Fields that, if present in a LanguageConfiguration, must be a RegExp object
- * rather than a string literal.
- */
-const REGEXP_PROPERTIES = [
-  // indentation
-  'indentationRules.decreaseIndentPattern',
-  'indentationRules.increaseIndentPattern',
-  'indentationRules.indentNextLinePattern',
-  'indentationRules.unIndentedLinePattern',
-
-  // code folding
-  'folding.markers.start',
-  'folding.markers.end',
-
-  // language's "word definition"
-  'wordPattern',
-];
-
-/**
- * Configuration data is read from JSON and JSONC files, which cannot contain
- * regular expression literals. Although Monarch grammars will often accept
- * either the source of a RegExp as a string OR a RegExp object, certain Monaco
- * APIs accept only a RegExp object, so we must "rehydrate" those, as appropriate.
- *
- * It would probably save everyone a lot of trouble if we updated the APIs to
- * accept a RegExp or a string literal. Possibly a small struct if flags need
- * to be specified to the RegExp constructor.
- */
-function rehydrateRegexps(rawConfiguration: string): monaco.languages.LanguageConfiguration {
-  const out = JSON.parse(rawConfiguration);
-  for (const property of REGEXP_PROPERTIES) {
-    const value = getProp(out, property);
-    if (typeof value === 'string') {
-      setProp(out, property, new RegExp(value));
-    }
-  }
-  return out;
-}
-
-function getProp(obj: {string: any}, selector: string): any {
-  const components = selector.split('.');
-  // @ts-ignore
-  return components.reduce((acc, cur) => (acc != null ? acc[cur] : null), obj);
-}
-
-function setProp(obj: {string: any}, selector: string, value: RegExp): void {
-  const components = selector.split('.');
-  const indexToSet = components.length - 1;
-  components.reduce((acc, cur, index) => {
-    if (acc == null) {
-      return acc;
-    }
-
-    if (index === indexToSet) {
-      // @ts-ignore
-      acc[cur] = value;
-      return null;
-    } else {
-      // @ts-ignore
-      return acc[cur];
-    }
-  }, obj);
 }

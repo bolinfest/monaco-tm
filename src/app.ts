@@ -124,7 +124,7 @@ async function main(language: LanguageId) {
     language,
     theme: 'vs-dark',
     minimap: {
-      enabled: false,
+      enabled: true,
     },
   });
   provider.injectCSS();

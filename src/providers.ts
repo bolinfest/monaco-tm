@@ -6,6 +6,10 @@ import type {LanguageId, LanguageInfo} from './register';
 import {INITIAL, Registry, parseRawGrammar} from 'vscode-textmate';
 // @ts-ignore
 import {generateTokensCSSForColorMap} from 'monaco-editor/esm/vs/editor/common/modes/supports/tokenization.js';
+// @ts-ignore
+import {TokenizationRegistry} from 'monaco-editor/esm/vs/editor/common/modes.js';
+// @ts-ignore
+import {Color} from 'monaco-editor/esm/vs/base/common/color.js';
 
 /** String identifier for a "scope name" such as 'source.cpp' or 'source.java'. */
 export type ScopeName = string;
@@ -107,7 +111,10 @@ export class SimpleLanguageInfoProvider {
    * injected CSS overrides the defaults.
    */
   injectCSS() {
-    const colorMap = this.registry.getColorMap();
+    const cssColors = this.registry.getColorMap();
+    const colorMap = cssColors.map(Color.Format.CSS.parseHex);
+    // This is needed to ensure the minimap gets the right colors.
+    TokenizationRegistry.setColorMap(colorMap);
     const css = generateTokensCSSForColorMap(colorMap);
     const style = createStyleElementForColorsCSS();
     style.innerHTML = css;

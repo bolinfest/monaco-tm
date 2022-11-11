@@ -16,8 +16,10 @@ jobs:
         run: apt-get -y update
       - name: install curl
         run: apt-get -y install curl
-      - name: install Node.js
+      - name: fetch Node.js
         run: curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+      - name: install Node.js
+        run: sudo apt-get install -y nodejs
       - name: install yarn
         run: npm install -g yarn
       - name: Checkout Code

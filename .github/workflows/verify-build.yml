@@ -1,4 +1,4 @@
-name: build TypeScript
+name: TypeScript build
 on:
   # Run on any branch to support ghstack's synthetic base/head branches.
   pull_request:

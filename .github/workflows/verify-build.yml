@@ -1,0 +1,28 @@
+name: Verify addons/ folder
+on:
+  # Run on any branch to support ghstack's synthetic base/head branches.
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify-addons:
+    runs-on: ubuntu-latest
+    container: 'ubuntu:22.04'
+    steps:
+      - name: apt update
+        run: apt-get -y update
+      - name: install Node.js
+        run: curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+      - name: install yarn
+        run: npm install -g yarn
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - name: Grant Access
+        run: git config --global --add safe.directory "$PWD"
+      - name: yarn install
+        run: yarn install
+      - name: build TypeScript
+        run: yarn run tsc --noEmit

@@ -1,4 +1,4 @@
-name: Verify addons/ folder
+name: TypeScript build
 on:
   # Run on any branch to support ghstack's synthetic base/head branches.
   pull_request:
@@ -14,8 +14,12 @@ jobs:
     steps:
       - name: apt update
         run: apt-get -y update
-      - name: install Node.js
+      - name: install curl and git
+        run: apt-get -y install curl git
+      - name: fetch Node.js
         run: curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+      - name: install Node.js
+        run: apt-get install -y nodejs
       - name: install yarn
         run: npm install -g yarn
       - name: Checkout Code

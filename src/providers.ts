@@ -152,6 +152,13 @@ export class SimpleLanguageInfoProvider {
   }
 }
 
+/**
+ * Specify a timeout when tokenizing a line to prevent a long line from locking
+ * up the main thread. Note this is used in VS Code:
+ * https://github.com/microsoft/vscode/blob/504c5a768a001b2099dd2b44e9dc39e10ccdfb56/src/vs/workbench/services/textMate/common/TMTokenization.ts#L39
+ */
+const TOKENIZE_TIMEOUT_MS = 500;
+
 class TokensProviderCache {
   private scopeNameToGrammar: Map<string, Promise<IGrammar>> = new Map();
 
@@ -172,7 +179,19 @@ class TokensProviderCache {
         line: string,
         state: monaco.languages.IState,
       ): monaco.languages.IEncodedLineTokens {
-        const tokenizeLineResult2 = grammar.tokenizeLine2(line, state as StackElement);
+        const tokenizeLineResult2 = grammar.tokenizeLine2(
+          line,
+          state as StackElement,
+          TOKENIZE_TIMEOUT_MS,
+        );
+
+        // This is the strategy used by VS Code:
+        if (tokenizeLineResult2.stoppedEarly) {
+          console.warn(`Time limit reached when tokenizing line: ${line.substring(0, 100)}`);
+          // return the state at the beginning of the line
+          return {tokens: tokenizeLineResult2.tokens, endState: state};
+        }
+
         const {tokens, ruleStack: endState} = tokenizeLineResult2;
         return {tokens, endState};
       },

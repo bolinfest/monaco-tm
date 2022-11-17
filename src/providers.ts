@@ -152,6 +152,8 @@ export class SimpleLanguageInfoProvider {
   }
 }
 
+const TOKENIZE_TIMEOUT_MS = 500;
+
 class TokensProviderCache {
   private scopeNameToGrammar: Map<string, Promise<IGrammar>> = new Map();
 
@@ -172,7 +174,17 @@ class TokensProviderCache {
         line: string,
         state: monaco.languages.IState,
       ): monaco.languages.IEncodedLineTokens {
-        const tokenizeLineResult2 = grammar.tokenizeLine2(line, state as StackElement);
+        const tokenizeLineResult2 = grammar.tokenizeLine2(
+          line,
+          state as StackElement,
+          TOKENIZE_TIMEOUT_MS,
+        );
+
+        // This is the strategy used by VS Code:
+        if (tokenizeLineResult2.stoppedEarly) {
+          return {tokens: tokenizeLineResult2.tokens, endState: state};
+        }
+
         const {tokens, ruleStack: endState} = tokenizeLineResult2;
         return {tokens, endState};
       },

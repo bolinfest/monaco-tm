@@ -15,7 +15,14 @@ module.exports = {
   output: {
     globalObject: 'self',
     filename: '[name].bundle.js',
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'dist')
+  },
+  devServer: {
+    static: {
+      directory:  __dirname
+    },
+    compress: true,
+    port: 8084,
   },
   resolve: {
     extensions: ['.js', '.ts', '.tsx'],

@@ -1,15 +1,17 @@
 import type * as monaco from 'monaco-editor';
 type Monaco = typeof monaco;
-import type {IGrammar, IRawGrammar, IRawTheme, IOnigLib, StackElement} from 'vscode-textmate';
+import type {IGrammar, IRawGrammar, IRawTheme, IOnigLib, StateStack} from 'vscode-textmate';
 import type {LanguageId, LanguageInfo} from './register';
 
 import {INITIAL, Registry, parseRawGrammar} from 'vscode-textmate';
 // @ts-ignore
-import {generateTokensCSSForColorMap} from 'monaco-editor/esm/vs/editor/common/modes/supports/tokenization.js';
+import {generateTokensCSSForColorMap} from 'monaco-editor/esm/vs/editor/common/languages/supports/tokenization.js';
 // @ts-ignore
-import {TokenizationRegistry} from 'monaco-editor/esm/vs/editor/common/modes.js';
+import {TokenizationRegistry} from 'monaco-editor/esm/vs/editor/common/tokenizationRegistry.js';
 // @ts-ignore
 import {Color} from 'monaco-editor/esm/vs/base/common/color.js';
+
+import VsCodeDarkTheme from './vs-dark-plus-theme';
 
 /** String identifier for a "scope name" such as 'source.cpp' or 'source.java'. */
 export type ScopeName = string;
@@ -112,12 +114,15 @@ export class SimpleLanguageInfoProvider {
    */
   injectCSS() {
     const cssColors = this.registry.getColorMap();
-    const colorMap = cssColors.map(Color.Format.CSS.parseHex);
+    //console.log('cssColors:', cssColors);
+    const colorMap:string[] = cssColors;//.map(Color.Format.CSS.parseHex);
+    //console.log('colorMap:', colorMap);
     // This is needed to ensure the minimap gets the right colors.
-    TokenizationRegistry.setColorMap(colorMap);
+    //TokenizationRegistry.setColorMap(colorMap);
     const css = generateTokensCSSForColorMap(colorMap);
     const style = createStyleElementForColorsCSS();
     style.innerHTML = css;
+    this.registry.setTheme(VsCodeDarkTheme,colorMap);
   }
 
   async fetchLanguageInfo(language: LanguageId): Promise<LanguageInfo> {
@@ -172,7 +177,7 @@ class TokensProviderCache {
         line: string,
         state: monaco.languages.IState,
       ): monaco.languages.IEncodedLineTokens {
-        const tokenizeLineResult2 = grammar.tokenizeLine2(line, state as StackElement);
+        const tokenizeLineResult2 = grammar.tokenizeLine2(line, state as StateStack);
         const {tokens, ruleStack: endState} = tokenizeLineResult2;
         return {tokens, endState};
       },
